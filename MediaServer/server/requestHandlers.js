@@ -8,7 +8,7 @@ function start(response) {
     console.log('starting');
     var filename = path.join(process.cwd(), 'www/index.html');
 
-    path.exists(filename, function(exists) {
+    fs.exists(filename, function(exists) {
         response.writeHead(200, {'Content-Type': 'text/html'});
         var fileStream = fs.createReadStream(filename);
         fileStream.pipe(response);
@@ -21,7 +21,7 @@ function getTalks(response) {
     exec("find www/videos/sdc/SDC2013/ -type f -name *.mp4", function (error, stdout, stderr) {
 
         var lines = stdout.toString().split('\n');
-        var results = new Array();
+        var results = [];
         lines.forEach(function(line) {
             results.push({type: 'sdc', path: line});
         });
@@ -32,11 +32,56 @@ function getTalks(response) {
     });
 }
 
+function getCategories(response) {
+    console.log('get categories invoked');
+
+    exec("find www/videos -maxdepth 1 -type d", function (error, stdout, stderr) {
+        var lines = stdout.toString().replace(new RegExp("www/videos/?","g"),"").split('\n');
+        var categories = [];
+        lines.forEach(function (line) {
+            if (line != '') {
+                categories.push(line);
+            }
+        });
+
+        response.writeHead(200, {"Content-Type": "application/json"});
+        response.write(JSON.stringify(categories));
+        response.end();
+    });
+}
+
+function getSubcategories(response, request) {
+    console.log('get subcategories invoked');
+
+    var query = url.parse(request.url).query;
+    var category = querystring.parse(query).category;
+    if (category === undefined) {
+        response.writeHead(400, {'Content-Type': 'text/html'});
+        response.end;
+    }
+    console.log('getting subcategories for category ' + category);
+
+    var searchRoot = "www/videos/" + category;
+    exec("find " + searchRoot + " -maxdepth 1 -type d", function (error, stdout, stderr) {
+        var lines = stdout.toString().replace(new RegExp(searchRoot + "/?","g"),"").split('\n');
+        var subcategories = [];
+        lines.forEach(function (line) {
+            if (line != '') {
+                subcategories.push(line);
+            }
+        });
+
+        response.writeHead(200, {"Content-Type": "application/json"});
+        response.write(JSON.stringify(subcategories));
+        response.end();
+    });
+}
+
 function notFound(response) {
     console.log('resource not found');
     var filename = path.join(process.cwd(), 'www/404.html');
 
-    path.exists(filename, function(exists) {
+    fs.exists(filename, function(exists) {
         response.writeHead(404, {'Content-Type': 'text/html'});
         var fileStream = fs.createReadStream(filename);
         fileStream.pipe(response);
@@ -47,14 +92,14 @@ function stream(response, request) {
     console.log('streaming invoked');
 
     var query = url.parse(request.url).query;
-    var pathToVideo = querystring.parse(query)['path'];
+    var pathToVideo = querystring.parse(query).path;
     console.log('desired video is ' + pathToVideo);
     var filename = path.join(process.cwd(), pathToVideo);
 
     var stat = fs.statSync(filename);
     var total = stat.size;
 
-    if (request.headers['range']) {
+    if (request.headers.range) {
         var range = request.headers.range;
         var parts = range.replace(/bytes=/, "").split("-");
         var partialstart = parts[0];
@@ -79,3 +124,5 @@ exports.start = start;
 exports.getTalks = getTalks;
 exports.notFound = notFound;
 exports.stream = stream;
+exports.getCategories = getCategories;
+exports.getSubcategories = getSubcategories;

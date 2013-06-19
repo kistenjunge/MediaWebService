@@ -22,6 +22,13 @@ So far there's only one option:
 
 * nothing serious yet
 
+## Resources
+
+* GET http://host/categories
+  Directory listing in root folder with depth 1
+
+* GET http://host/subcategories?category={category}
+  Directory listing in root folder + {category} with depth 1
 
 ## Documentation
 
